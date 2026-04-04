@@ -1,0 +1,757 @@
+openapi: 3.1.0
+info:
+  title: Gymie MVP API
+  version: 1.0.0
+  description: API spec for Gymie MVP backend (running + lifting + AI plan generation).
+servers:
+  - url: http://localhost:4101/api
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Plans
+  - name: Workouts
+  - name: Runs
+  - name: Records
+  - name: AI
+paths:
+  /health:
+    get:
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          $ref: '#/components/responses/Error409'
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Error401'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /auth/logout:
+    delete:
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '204':
+          description: Logged out
+  /users/me:
+    get:
+      tags: [Users]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+    put:
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfilePatch'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+  /users/me/preferences:
+    put:
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferencePatch'
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+  /plans:
+    get:
+      tags: [Plans]
+      responses:
+        '200':
+          description: Plans list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlanSummary'
+    post:
+      tags: [Plans]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanRequest'
+      responses:
+        '201':
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    $ref: '#/components/schemas/PlanDetail'
+  /plans/ai-generate:
+    post:
+      tags: [Plans]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGenerateRequest'
+      responses:
+        '200':
+          description: Generated AI draft plan and persisted as draft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGenerateResponse'
+  /plans/{id}:
+    get:
+      tags: [Plans]
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '200':
+          description: Plan detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    $ref: '#/components/schemas/PlanDetail'
+    put:
+      tags: [Plans]
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanRequest'
+      responses:
+        '200':
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    $ref: '#/components/schemas/PlanDetail'
+    delete:
+      tags: [Plans]
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      responses:
+        '204':
+          description: Deleted
+  /plans/{id}/accept:
+    post:
+      tags: [Plans]
+      parameters:
+        - $ref: '#/components/parameters/PlanId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usage_log_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Plan accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  plan_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+  /workouts:
+    get:
+      tags: [Workouts]
+      responses:
+        '200':
+          description: Workout sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workouts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkoutSession'
+    post:
+      tags: [Workouts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkoutRequest'
+      responses:
+        '201':
+          description: Started workout session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workout:
+                    $ref: '#/components/schemas/WorkoutSession'
+  /workouts/{id}:
+    get:
+      tags: [Workouts]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Workout detail
+    put:
+      tags: [Workouts]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkoutPatchRequest'
+      responses:
+        '200':
+          description: Updated workout
+  /workouts/{id}/sets:
+    post:
+      tags: [Workouts]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddExerciseSetRequest'
+      responses:
+        '201':
+          description: Added/upserted set
+  /workouts/{id}/finish:
+    put:
+      tags: [Workouts]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ended_at:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Finished workout (idempotent)
+  /runs:
+    get:
+      tags: [Runs]
+      responses:
+        '200':
+          description: Run sessions
+    post:
+      tags: [Runs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunRequest'
+      responses:
+        '201':
+          description: Started run session
+  /runs/{id}:
+    get:
+      tags: [Runs]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Run detail with laps
+  /runs/{id}/finish:
+    put:
+      tags: [Runs]
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishRunRequest'
+      responses:
+        '200':
+          description: Finished run (idempotent)
+  /records/running:
+    get:
+      tags: [Records]
+      responses:
+        '200':
+          description: Running PRs
+  /records/strength:
+    get:
+      tags: [Records]
+      responses:
+        '200':
+          description: Strength PRs
+  /records/strength/{exercise}:
+    get:
+      tags: [Records]
+      parameters:
+        - name: exercise
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Strength exercise history
+  /ai/analyze-history:
+    post:
+      tags: [AI]
+      responses:
+        '200':
+          description: User history analysis for plan generation
+  /ai/generate-plan:
+    post:
+      tags: [AI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGenerateRequest'
+      responses:
+        '200':
+          description: Generated AI draft plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGenerateResponse'
+  /ai/feedback:
+    post:
+      tags: [AI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [usage_log_id, was_accepted]
+              properties:
+                usage_log_id:
+                  type: string
+                  format: uuid
+                was_accepted:
+                  type: boolean
+                feedback_score:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+      responses:
+        '200':
+          description: Feedback accepted
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PlanId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error401:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error409:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            details:
+              nullable: true
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        age: { type: integer, nullable: true }
+        gender: { type: string, nullable: true }
+        height_cm: { type: number, nullable: true }
+        weight_kg: { type: number, nullable: true }
+        goal: { type: string, nullable: true }
+        fitness_level: { type: string, nullable: true }
+        unit_system: { type: string }
+        training_type: { type: string }
+        available_days:
+          type: array
+          items: { type: integer }
+    AuthTokens:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        tokens:
+          $ref: '#/components/schemas/AuthTokens'
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        age: { type: integer }
+        gender: { type: string, enum: [male, female, other] }
+        height_cm: { type: number }
+        weight_kg: { type: number }
+        goal: { type: string, enum: [build_muscle, lose_fat, endurance, general_fitness] }
+        fitness_level: { type: string, enum: [beginner, intermediate, advanced] }
+        unit_system: { type: string, enum: [metric, imperial] }
+        training_type: { type: string, enum: [running, strength, hybrid] }
+        available_days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    UserProfilePatch:
+      type: object
+      properties:
+        name: { type: string }
+        age: { type: integer }
+        gender: { type: string, enum: [male, female, other] }
+        height_cm: { type: number }
+        weight_kg: { type: number }
+        goal: { type: string, enum: [build_muscle, lose_fat, endurance, general_fitness] }
+        fitness_level: { type: string, enum: [beginner, intermediate, advanced] }
+    UserPreferencePatch:
+      type: object
+      properties:
+        unit_system: { type: string, enum: [metric, imperial] }
+        training_type: { type: string, enum: [running, strength, hybrid] }
+        available_days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+    PlanSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string }
+        goal: { type: string, nullable: true }
+        duration_weeks: { type: integer }
+        is_ai_generated: { type: boolean }
+        status: { type: string }
+    PlanExercise:
+      type: object
+      properties:
+        name: { type: string }
+        sets: { type: integer, nullable: true }
+        reps: { type: integer, nullable: true }
+        weight_kg: { type: number, nullable: true }
+        distance_km: { type: number, nullable: true }
+        pace_per_km: { type: string, nullable: true }
+        run_type: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+    PlanDay:
+      type: object
+      properties:
+        day_of_week: { type: integer, minimum: 0, maximum: 6 }
+        type: { type: string, enum: [running, strength, rest] }
+        title: { type: string, nullable: true }
+        duration_min: { type: integer, nullable: true }
+        intensity_pct: { type: integer, nullable: true }
+        notes: { type: string, nullable: true }
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanExercise'
+    PlanWeek:
+      type: object
+      properties:
+        week: { type: integer }
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanDay'
+    PlanDetail:
+      allOf:
+        - $ref: '#/components/schemas/PlanSummary'
+        - type: object
+          properties:
+            weeks:
+              type: array
+              items:
+                $ref: '#/components/schemas/PlanWeek'
+    CreatePlanRequest:
+      type: object
+      required: [name, type, duration_weeks]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [running, strength, hybrid] }
+        goal: { type: string }
+        duration_weeks: { type: integer, enum: [4, 8, 12] }
+        is_ai_generated: { type: boolean }
+        status: { type: string, enum: [active, archived, draft] }
+        weeks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanWeek'
+    UpdatePlanRequest:
+      type: object
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [running, strength, hybrid] }
+        goal: { type: string }
+        status: { type: string, enum: [active, archived, draft] }
+    AiGenerateRequest:
+      type: object
+      required: [goal, duration_weeks]
+      properties:
+        goal: { type: string }
+        duration_weeks: { type: integer, enum: [4, 8, 12] }
+        limitations: { type: string }
+        available_days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+        training_type: { type: string, enum: [running, strength, hybrid] }
+    AiGenerateResponse:
+      type: object
+      properties:
+        draftPlanId: { type: string, format: uuid }
+        usageLogId: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        source: { type: string }
+        promptVersion:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer }
+            model: { type: string }
+        analysis:
+          type: object
+        plan:
+          type: object
+    WorkoutSession:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        plan_day_id: { type: string, format: uuid, nullable: true }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time, nullable: true }
+        total_volume_kg: { type: number, nullable: true }
+        notes: { type: string, nullable: true }
+        status: { type: string }
+    CreateWorkoutRequest:
+      type: object
+      properties:
+        plan_day_id: { type: string, format: uuid }
+        started_at: { type: string, format: date-time }
+        notes: { type: string }
+    WorkoutPatchRequest:
+      type: object
+      properties:
+        ended_at: { type: string, format: date-time }
+        total_volume_kg: { type: number, minimum: 0 }
+        notes: { type: string }
+        status: { type: string, enum: [in_progress, completed, cancelled] }
+    AddExerciseSetRequest:
+      type: object
+      required: [exercise_name, set_number, reps, weight_kg]
+      properties:
+        exercise_name: { type: string }
+        set_number: { type: integer, minimum: 1 }
+        reps: { type: integer, minimum: 1 }
+        weight_kg: { type: number, minimum: 0 }
+        is_pr: { type: boolean }
+        completed_at: { type: string, format: date-time }
+    CreateRunRequest:
+      type: object
+      properties:
+        plan_day_id: { type: string, format: uuid }
+        started_at: { type: string, format: date-time }
+    FinishRunRequest:
+      type: object
+      required: [distance_km, duration_sec]
+      properties:
+        ended_at: { type: string, format: date-time }
+        distance_km: { type: number, minimum: 0.01 }
+        duration_sec: { type: integer, minimum: 1 }
+        avg_heart_rate: { type: integer, minimum: 0 }
+        calories: { type: integer, minimum: 0 }
+        route_geojson:
+          type: object
+        laps:
+          type: array
+          items:
+            type: object
+            required: [lap_number, distance_km, duration_sec]
+            properties:
+              lap_number: { type: integer, minimum: 1 }
+              distance_km: { type: number, minimum: 0.01 }
+              duration_sec: { type: integer, minimum: 1 }
+              pace: { type: string }
+              heart_rate: { type: integer, minimum: 0 }

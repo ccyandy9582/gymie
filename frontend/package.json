@@ -1,0 +1,17 @@
+{
+  "name": "gymie-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/run-next.js dev",
+    "build": "next build",
+    "start": "node scripts/run-next.js start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "16.2.2",
+    "dotenv": "^16.6.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  }
+}
