@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "../../../components/page-header";
 import { useAuth } from "../../../components/auth-context";
+import { hideOnboardingPrompt, showOnboardingPrompt } from "../../../lib/onboarding";
 
 const GOALS = [
   { value: "build_muscle", title: "Build Muscle", description: "Increase lean mass and strength output." },
@@ -30,7 +31,7 @@ const DAYS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, setUser, authedRequest } = useAuth();
+  const { user, setUser, authedRequest, skipOnboardingForSession } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -91,7 +92,9 @@ export default function OnboardingPage() {
         body: preferencePayload,
       });
 
-      setUser(updatedPreferences.user || updatedProfile.user);
+      const resolvedUser = updatedPreferences.user || updatedProfile.user;
+      setUser(resolvedUser);
+      showOnboardingPrompt(resolvedUser?.id || user?.id);
       router.push("/plans");
     } catch (saveError) {
       setError(saveError.message || "Failed to save onboarding data");
@@ -100,12 +103,25 @@ export default function OnboardingPage() {
     }
   }
 
+  function handleSkip() {
+    skipOnboardingForSession();
+    router.push("/dashboard");
+  }
+
+  function handleDontShowAgain() {
+    if (user?.id) {
+      hideOnboardingPrompt(user.id);
+    }
+    skipOnboardingForSession();
+    router.push("/dashboard");
+  }
+
   return (
     <section className="fade-in">
       <PageHeader
         eyebrow="Onboarding"
         title="Athlete Baseline Setup"
-        subtitle="Complete your profile in four short steps. This becomes the default input for AI plan generation."
+        subtitle="Complete your profile in four short steps. You can also skip for now or hide this flow for future sign-ins."
       />
 
       <div className="card" style={{ marginBottom: "1rem", height: 8, overflow: "hidden" }}>
@@ -243,19 +259,30 @@ export default function OnboardingPage() {
         </div>
       )}
 
-      <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", gap: "0.7rem" }}>
-        <button type="button" className="btn btn-ghost" disabled={step === 1 || saving} onClick={() => setStep((prev) => Math.max(1, prev - 1))}>
-          Back
-        </button>
-        {step < 4 ? (
-          <button type="button" className="btn btn-secondary" onClick={() => setStep((prev) => Math.min(4, prev + 1))}>
-            Next
+      <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", gap: "0.7rem", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "0.55rem", flexWrap: "wrap" }}>
+          <button type="button" className="btn btn-ghost" onClick={handleSkip} disabled={saving}>
+            Skip for now
           </button>
-        ) : (
-          <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving || form.available_days.length < 2}>
-            {saving ? "Saving..." : "Commit Setup"}
+          <button type="button" className="btn btn-ghost" onClick={handleDontShowAgain} disabled={saving}>
+            Don&apos;t show again
           </button>
-        )}
+        </div>
+
+        <div style={{ display: "flex", gap: "0.7rem", marginLeft: "auto" }}>
+          <button type="button" className="btn btn-ghost" disabled={step === 1 || saving} onClick={() => setStep((prev) => Math.max(1, prev - 1))}>
+            Back
+          </button>
+          {step < 4 ? (
+            <button type="button" className="btn btn-secondary" onClick={() => setStep((prev) => Math.min(4, prev + 1))}>
+              Next
+            </button>
+          ) : (
+            <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving || form.available_days.length < 2}>
+              {saving ? "Saving..." : "Commit Setup"}
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );

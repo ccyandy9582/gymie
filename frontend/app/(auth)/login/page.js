@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../components/auth-context";
+import { shouldForceOnboarding } from "../../../lib/onboarding";
 
 const REGISTER_DEFAULT = {
   name: "",
@@ -12,7 +13,7 @@ const REGISTER_DEFAULT = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register } = useAuth();
+  const { login, register, resetOnboardingSessionSkip } = useAuth();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,12 +26,16 @@ export default function LoginPage() {
     setError("");
 
     try {
+      let authResult;
       if (mode === "login") {
-        await login(loginForm.email, loginForm.password);
+        authResult = await login(loginForm.email, loginForm.password);
       } else {
-        await register(registerForm);
+        authResult = await register(registerForm);
       }
-      router.replace("/dashboard");
+
+      resetOnboardingSessionSkip();
+      const nextPath = shouldForceOnboarding(authResult.user) ? "/onboarding" : "/dashboard";
+      router.replace(nextPath);
     } catch (submitError) {
       setError(submitError.message || "Authentication failed");
     } finally {

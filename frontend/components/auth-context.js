@@ -34,6 +34,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
   const [user, setUser] = useState(null);
+  const [onboardingSkippedThisSession, setOnboardingSkippedThisSession] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export function AuthProvider({ children }) {
     setToken(data.tokens.accessToken);
     setRefreshToken(data.tokens.refreshToken);
     setUser(data.user);
+    setOnboardingSkippedThisSession(false);
     saveAuthState({
       accessToken: data.tokens.accessToken,
       refreshToken: data.tokens.refreshToken,
@@ -88,6 +90,7 @@ export function AuthProvider({ children }) {
     setToken(data.tokens.accessToken);
     setRefreshToken(data.tokens.refreshToken);
     setUser(data.user);
+    setOnboardingSkippedThisSession(false);
     saveAuthState({
       accessToken: data.tokens.accessToken,
       refreshToken: data.tokens.refreshToken,
@@ -153,9 +156,34 @@ export function AuthProvider({ children }) {
     setToken(null);
     setRefreshToken(null);
     setUser(null);
+    setOnboardingSkippedThisSession(false);
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_KEY);
     }
+  }
+
+  function setUserWithPersistence(nextUser) {
+    setUser((prevUser) => {
+      const resolvedUser = typeof nextUser === "function" ? nextUser(prevUser) : nextUser;
+
+      if (token && refreshToken && resolvedUser) {
+        saveAuthState({
+          accessToken: token,
+          refreshToken,
+          user: resolvedUser,
+        });
+      }
+
+      return resolvedUser;
+    });
+  }
+
+  function skipOnboardingForSession() {
+    setOnboardingSkippedThisSession(true);
+  }
+
+  function resetOnboardingSessionSkip() {
+    setOnboardingSkippedThisSession(false);
   }
 
   const value = useMemo(
@@ -163,6 +191,7 @@ export function AuthProvider({ children }) {
       token,
       refreshToken,
       user,
+      onboardingSkippedThisSession,
       isBootstrapping,
       isAuthenticated: Boolean(token),
       register,
@@ -171,9 +200,11 @@ export function AuthProvider({ children }) {
       refreshSession,
       hydrateUser,
       authedRequest,
-      setUser,
+      setUser: setUserWithPersistence,
+      skipOnboardingForSession,
+      resetOnboardingSessionSkip,
     }),
-    [token, refreshToken, user, isBootstrapping],
+    [token, refreshToken, user, onboardingSkippedThisSession, isBootstrapping],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
