@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "../../../components/page-header";
 import { useAuth } from "../../../components/auth-context";
@@ -16,6 +17,16 @@ const GOALS = [
 ];
 
 const DURATION_OPTIONS = [4, 8, 12];
+const TRAINING_TYPE_LABELS = {
+  running: "Running",
+  strength: "Strength",
+  hybrid: "Hybrid",
+};
+const STATUS_LABELS = {
+  active: "Active",
+  archived: "Archived",
+  draft: "Draft",
+};
 
 function dayLabel(day) {
   const map = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -26,6 +37,59 @@ function prettyType(type) {
   if (type === "running") return "RUN";
   if (type === "strength") return "LIFT";
   return "REST";
+}
+
+function formatGoal(goal) {
+  const match = GOALS.find((item) => item.value === goal);
+  if (match) {
+    return match.label;
+  }
+  if (!goal) {
+    return "-";
+  }
+  return String(goal).replaceAll("_", " ");
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+  return date.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function toCycleProgress(plan) {
+  const duration = Number(plan?.duration_weeks || 0);
+  if (!duration) {
+    return { week: "-", totalWeeks: "-", percent: 0, endDate: "-" };
+  }
+
+  const createdAt = new Date(plan?.created_at || "");
+  if (Number.isNaN(createdAt.getTime())) {
+    return { week: 1, totalWeeks: duration, percent: Math.round(100 / duration), endDate: "-" };
+  }
+
+  const now = new Date();
+  const elapsedDays = Math.max(0, Math.floor((now - createdAt) / (1000 * 60 * 60 * 24)));
+  const week = Math.min(duration, Math.floor(elapsedDays / 7) + 1);
+  const percent = Math.max(4, Math.round((week / duration) * 100));
+
+  const endDate = new Date(createdAt);
+  endDate.setDate(endDate.getDate() + (duration * 7) - 1);
+
+  return {
+    week,
+    totalWeeks: duration,
+    percent,
+    endDate: formatDate(endDate.toISOString()),
+  };
 }
 
 export default function PlansPage() {
@@ -73,6 +137,7 @@ export default function PlansPage() {
   }, []);
 
   const latestActivePlan = useMemo(() => plans.find((plan) => plan.status === "active"), [plans]);
+  const activeProgress = useMemo(() => toCycleProgress(latestActivePlan), [latestActivePlan]);
 
   function toggleDay(day) {
     setForm((prev) => {
@@ -227,15 +292,69 @@ export default function PlansPage() {
         </section>
 
         <section className="card" style={{ padding: "1rem", display: "grid", gap: "0.7rem", alignContent: "start" }}>
-          <div className="label">Current Active Plan</div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "0.65rem", alignItems: "center", flexWrap: "wrap" }}>
+            <div className="label">Current Active Plan</div>
+            {latestActivePlan ? (
+              <span
+                className="label"
+                style={{
+                  border: "1px solid var(--outline-variant)",
+                  borderRadius: "999px",
+                  padding: "0.3rem 0.55rem",
+                  color: latestActivePlan.status === "active" ? "var(--tertiary)" : "var(--on-surface-variant)",
+                  borderColor: latestActivePlan.status === "active" ? "rgba(166,215,0,0.5)" : "var(--outline-variant)",
+                }}
+              >
+                {STATUS_LABELS[latestActivePlan.status] || "Unknown"}
+              </span>
+            ) : null}
+          </div>
           {latestActivePlan ? (
             <>
-              <h3 className="headline" style={{ margin: 0, fontSize: "1.4rem", color: "var(--primary)" }}>
+              <h3 className="headline" style={{ margin: "0.2rem 0 0", fontSize: "1.4rem", color: "var(--primary)" }}>
                 {latestActivePlan.name}
               </h3>
               <div className="muted">Duration: {latestActivePlan.duration_weeks} weeks</div>
-              <div className="muted">Type: {latestActivePlan.type}</div>
-              <div className="muted">Goal: {latestActivePlan.goal}</div>
+              <div className="muted">Type: {TRAINING_TYPE_LABELS[latestActivePlan.type] || latestActivePlan.type || "-"}</div>
+              <div className="muted">Goal: {formatGoal(latestActivePlan.goal)}</div>
+              <div className="muted">Last Updated: {formatDate(latestActivePlan.updated_at)}</div>
+
+              <div style={{ marginTop: "0.35rem", display: "grid", gap: "0.35rem" }}>
+                <div className="label">
+                  Cycle Progress · Week {activeProgress.week} / {activeProgress.totalWeeks}
+                </div>
+                <div
+                  aria-label="Cycle progress"
+                  role="progressbar"
+                  aria-valuenow={typeof activeProgress.percent === "number" ? activeProgress.percent : 0}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  style={{
+                    height: 8,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.08)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${activeProgress.percent}%`,
+                      height: "100%",
+                      background: "linear-gradient(90deg, var(--primary), var(--tertiary))",
+                    }}
+                  />
+                </div>
+                <div className="muted">Target End: {activeProgress.endDate}</div>
+              </div>
+
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
+                <button type="button" className="btn btn-ghost" onClick={loadPlans}>
+                  Refresh
+                </button>
+                <Link href="/dashboard" className="btn btn-secondary">
+                  Open Dashboard
+                </Link>
+              </div>
             </>
           ) : (
             <div className="muted">No active plan yet.</div>
