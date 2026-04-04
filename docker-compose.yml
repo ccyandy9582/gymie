@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_PORT: ${BACKEND_PORT:-4101}
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-4101}:${BACKEND_PORT:-4101}"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST:?Set POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      BACKEND_PORT: ${BACKEND_PORT:-4101}
+      PORT: ${BACKEND_PORT:-4101}
+      NODE_ENV: production
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        FRONTEND_PORT: ${FRONTEND_PORT:-4100}
+        BACKEND_PORT: ${BACKEND_PORT:-4101}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-4101}}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-4100}:${FRONTEND_PORT:-4100}"
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-4101}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-4101}}
+      FRONTEND_PORT: ${FRONTEND_PORT:-4100}
+      PORT: ${FRONTEND_PORT:-4100}
+    depends_on:
+      - backend
