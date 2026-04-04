@@ -1,24 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: gymie
-      POSTGRES_USER: gymie
-      POSTGRES_PASSWORD: gymie_secret
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gymie"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend
@@ -27,13 +9,15 @@ services:
     ports:
       - "4000:4000"
     environment:
-      DATABASE_URL: postgresql://gymie:gymie_secret@db:5432/gymie
+      DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST:?Set POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       PORT: 4000
       NODE_ENV: production
-    depends_on:
-      db:
-        condition: service_healthy
 
   frontend:
     build:
@@ -46,6 +30,3 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:4000
     depends_on:
       - backend
-
-volumes:
-  pgdata:
